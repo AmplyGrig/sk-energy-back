@@ -42,7 +42,6 @@ class Register(BaseEndpoint):
                 "register_date": datetime.now(),
                 "scopes": ['user']
             }
-
             db_helper = DBHelper()
             db_user = await db_helper.async_select_db(app.client.energy_db.users, {"email" : request_json['email']})
             
@@ -57,24 +56,24 @@ class Register(BaseEndpoint):
                 url = 'http://localhost:8888' + url
                 await send_email(email, "Подтверждение регистрации CK Energy", url)
 
-                user = await request.app.auth.authenticate(request, *args, **kwargs)
-                access_token, output = await self.responses.get_access_token_output(
-                    request,
-                    user,
-                    self.config,
-                    self.instance
-                )
+                # user = await request.app.auth.authenticate(request, *args, **kwargs)
+                # access_token, output = await self.responses.get_access_token_output(
+                #     request,
+                #     user,
+                #     self.config,
+                #     self.instance
+                # )
 
-                refresh_token = await self.instance.auth.generate_refresh_token(request, user)
-                output.update({
-                    self.config.refresh_token_name: refresh_token
-                })
+                # refresh_token = await self.instance.auth.generate_refresh_token(request, user)
+                # output.update({
+                #     self.config.refresh_token_name: refresh_token
+                # })
 
                 response = self.responses.get_token_response(
                     request,
-                    access_token,
-                    output,
-                    refresh_token=refresh_token,
+                    None,
+                    None,
+                    refresh_token=None,
                     config=self.config
                 )
         else:
@@ -117,7 +116,6 @@ my_views = (
 app = Sanic(__name__)
 app.config.SECRET_KEY='LOL'
 
-CORS(app, automatic_options=True)
 bcrypt = Bcrypt(app)
 app.blueprint(mongo_bp)
 
@@ -131,5 +129,6 @@ Initialize(
     store_refresh_token=store_refresh_token,
     retrieve_refresh_token=retrieve_refresh_token
 )
+CORS(app, automatic_options=True)
 
 from . import routes

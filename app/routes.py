@@ -43,10 +43,11 @@ async def reset_password(request):
     
     return response.json({'hit': 0})
 
-@app.route('/approve-mail/<token>', methods=['GET'])
-async def approve_email(request, token):
+@app.route('/approve-mail', methods=['POST'])
+async def approve_email(request):
+    print(request)
     try:
-        email = ts.loads(token, salt="approve-email-key", max_age=86400)
+        email = ts.loads(request.json['token'], salt="approve-email-key", max_age=86400)
     except:
         raise RegistrationFailed()
     
