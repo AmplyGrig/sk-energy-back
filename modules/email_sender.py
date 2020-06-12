@@ -1,44 +1,38 @@
-import smtplib                                              # Импортируем библиотеку по работе с SMTP
+import smtplib
 import aiosmtplib
-import os                                                   # Функции для работы с операционной системой, не зависящие от используемой операционной системы
+import os
 
-# Добавляем необходимые подклассы - MIME-типы
-import mimetypes                                            # Импорт класса для обработки неизвестных MIME-типов, базирующихся на расширении файла
-from email import encoders                                  # Импортируем энкодер
-from email.mime.base import MIMEBase                        # Общий тип
-from email.mime.text import MIMEText                        # Текст/HTML
-from email.mime.image import MIMEImage                      # Изображения
-from email.mime.audio import MIMEAudio                      # Аудио
-from email.mime.multipart import MIMEMultipart              # Многокомпонентный объект
+import mimetypes
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+from email.mime.audio import MIMEAudio
+from email.mime.multipart import MIMEMultipart
 
 
 async def send_email(addr_to, msg_subj, msg_text, files=None):
-    addr_from = "leonid_kit@mail.ru"                         # Отправитель
-    password  = "potapDog199806r!"                               # Пароль
+    addr_from = "leonid_kit@mail.ru"
+    password  = "potapDog199806r!"
 
-    msg = MIMEMultipart()                                   # Создаем сообщение
-    msg['From']    = addr_from                              # Адресат
-    msg['To']      = addr_to                                # Получатель
-    msg['Subject'] = msg_subj                               # Тема сообщения
+    msg = MIMEMultipart()
+    msg['From']    = addr_from
+    msg['To']      = addr_to
+    msg['Subject'] = msg_subj
 
-    body = msg_text                                         # Текст сообщения
-    msg.attach(MIMEText(body, 'plain'))                     # Добавляем в сообщение текст
+    body = msg_text
+    msg.attach(MIMEText(body, 'plain'))
 
     if files:
         process_attachement(msg, files)
 
-    #======== Этот блок настраивается для каждого почтового провайдера отдельно ===============================================
-    #server = smtplib.SMTP_SSL('smtp.mail.ru', 465)        # Создаем объект SMTP
     server = aiosmtplib.SMTP(hostname='smtp.mail.ru', port=465, use_tls=True)
     await server.connect()
-    #server.starttls()                                      # Начинаем шифрованный обмен по TLS
-    #server.set_debuglevel(True)                            # Включаем режим отладки, если не нужен - можно закомментировать
-    await server.login(addr_from, password)                       # Получаем доступ
-    await server.send_message(msg)                                # Отправляем сообщение
-    await server.quit()                                           # Выходим
-    #==========================================================================================================================
+    await server.login(addr_from, password)
+    await server.send_message(msg)
+    await server.quit()
 
-def process_attachement(msg, files):                        # Функция по обработке списка, добавляемых к сообщению файлов
+def process_attachement(msg, files):
     for f in files:
         if os.path.isfile(f):                               # Если файл существует
             attach_file(msg,f)                              # Добавляем файл к сообщению
