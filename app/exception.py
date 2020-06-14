@@ -11,3 +11,9 @@ class PasswordResetFailed(exceptions.SanicJWTException):
 
     def __init__(self, message="Password reset failed.", **kwargs):
         super().__init__(message, **kwargs)
+
+class UserException(exceptions.SanicJWTException):
+    status_code = 405
+
+    def __init__(self, message="User error.", **kwargs):
+        super().__init__(message, **kwargs)
