@@ -17,3 +17,9 @@ class UserException(exceptions.SanicJWTException):
 
     def __init__(self, message="User error.", **kwargs):
         super().__init__(message, **kwargs)
+
+class ObjectException(exceptions.SanicJWTException):
+    status_code = 406
+
+    def __init__(self, message="Object error.", **kwargs):
+        super().__init__(message, **kwargs)

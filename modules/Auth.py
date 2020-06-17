@@ -9,6 +9,10 @@ from app.models import User
 
 class Auth:
     @staticmethod
+    async def my_scope_extender(user, *args, **kwargs):
+        return user['role']
+
+    @staticmethod
     async def store_refresh_token(user_id, refresh_token, *args, **kwargs):
         pass
 
@@ -40,7 +44,7 @@ class Auth:
             logger.error('Неверный логин или пароль')
             raise exceptions.AuthenticationFailed('Неверный логин или пароль')
 
-        return { 'user_id' : str(user.get('_id')) }
+        return { 'user_id' : str(user.get('_id')), 'role': user.get('role') }
 
 class ResetPassword(BaseEndpoint):
     async def post(self, request, *args, **kwargs):

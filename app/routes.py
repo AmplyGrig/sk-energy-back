@@ -6,7 +6,9 @@ from email_validator import validate_email
 import json
 from modules.database import DBHelper
 from bson.objectid import ObjectId
-from .models import User
+from .models import User, Object
+from .exception import ObjectException
+from sanic_jwt.decorators import scoped
 
 @app.route('/', methods=['POST'])
 @protected()
@@ -34,135 +36,127 @@ async def callMe(request):
 
 @app.route('/add-object', methods=["POST"])
 @inject_user()
+@scoped('user')
 @protected()
 async def add_object(request, user):
-    req_json = json.loads(request.body)
-    print(user)
-    #TODO: Проверить есть ли в бд объект с тем же именем
-    db_helper = DBHelper()
-    res = await db_helper.insert_db(app.client.energy_db.objects, {
-            'object_name': req_json['object_name'],
-            'user_email': user['email']
-        }
+    new_object = Object(
+        app.client.energy_db.objects, 
+        object_name=request.json['object_name'], 
+        user_email=user['email']
     )
+    res, err = await new_object.insert()
+    if err:
+        raise ObjectException(err)
+
     return response.json({'hit': 0})
     
-#TODO сделать два метода 1) отдает инфу для отрисовки слева в меню 2) отдает полностью содерждиморе для всего    
 @app.route('/get-object-list', methods=["GET"])
 @inject_user()
 @protected()
 async def get_object_list(request, user):
-    db_helper = DBHelper()
-    res = await db_helper.do_find(
-        app.client.energy_db.objects, 
+    obj = Object(app.client.energy_db.objects)
+    obj_list, err = await obj.select(
         { 'user_email': user['email'] }, 
         {"_id": True, "object_name": True}
     )
-    for item in res:
-        item['_id'] = str(item['_id'])
-    return response.json({'objects' : res})
+    if err:
+        raise ObjectException(err)
+
+    return response.json({'objects' : obj_list})
     
 @app.route('/get-object', methods=["POST"])
 @inject_user()
 @protected()
 async def get_object(request, user):
-    db_helper = DBHelper()
-    res = await db_helper.do_find(app.client.energy_db.objects, { 'user_email': user['email'] })
-    for item in res:
-        item['_id'] = str(item['_id'])
-    return response.json({'objects' : res})
+    obj = Object(app.client.energy_db.objects)
+    obj_list, err = await obj.select(
+        { 'user_email': user['email'] }
+    )
+    if err:
+        raise ObjectException(err)
+
+    return response.json({'objects' : obj_list})
 
 @app.route('/delete-object', methods=['POST'])
 @inject_user()
+@scoped('user')
 @protected()
 async def delete_object(request, user):
-    email = user['email']
-    req_json = json.loads(request.body)
-    object_name = req_json['object_name']
-    object_id = req_json['object_id']
-    db_helper = DBHelper()
-
-    res = await db_helper.delete_row(
-        app.client.energy_db.objects, 
-        {
-            '_id': ObjectId(object_id), 
-            'user_email' : email, 
-            'object_name': object_name
-        }
-    )
-    print(res)
+    obj = Object(app.client.energy_db.objects)
+    res, err = await obj.delete({
+            '_id': ObjectId(request.json['object_id']), 
+            'user_email' : user['email'], 
+            'object_name': request.json['object_name']
+    })
+    if err:
+        raise ObjectException(err)
 
     return response.json({'hit': 0})
 
 @app.route('/upload-main-file', methods=['POST'])
 @inject_user()
+@scoped('user')
 @protected()
 async def upload_main_file(request, user):
-    print(request.form)
     object_id = ObjectId(request.form['object_id'][0])
     object_type = request.form['object_type'][0]
     object_file = request.files['object_file'][0]
 
-    db_helper = DBHelper()
-    res = await db_helper.update_row(
-        app.client.energy_db.objects, 
-        {"_id": object_id}, 
+    obj = Object(app.client.energy_db.objects)
+    res, err = await obj.update(
+        {"_id": object_id},
         {
-            "$set": {
-                object_type: {
-                    "type": object_file.type,
-                    "content": object_file.body,
-                    "filename": object_file.name,
-                    "is_approve": False
-                }
+            object_type: {
+                "type": object_file.type,
+                "content": object_file.body,
+                "filename": object_file.name,
+                "is_approve": False
             }
         }
     )
-    print((res.raw_result))
-    return response.text('sdadf')
+    if err:
+        raise ObjectException(err)
+
+    return response.json({'hit': 0})
 
 @app.route('/get-main-files', methods=['POST'])
 @inject_user()
 @protected()
 async def get_main_files(request, user):
-    db_helper = DBHelper()
-    res = await db_helper.do_find(
-        app.client.energy_db.objects, 
-        { 'user_email': user['email'], '_id': ObjectId(request.json['object_id']) }, 
-        {"_id": False, "object_name": False, "user_email": False}
+    obj = Object(app.client.energy_db.objects)
+    res, err = await obj.select(
+        { 'user_email': "leonid_kit@mail.ru", '_id': ObjectId(request.json['object_id'])},
+        {
+            "_id": False,
+            "object_name": False, 
+            "user_email": False
+        },
+        isFiles=True,
+        fileFieldsNeed=['is_approve']
     )
-    print((res))
-    list_of_keys = [
-        'passport_pute',
-        'project_uute',
-        'tech_conditions',
-        'tech_passport',
-        'cadastr_passport',
-        'recvisits',
-    ]
-    ret = {}
-    if res:
-        for key in list_of_keys:
-            if res[0].get(key, None):
-                ret[key] = True
-
-    print(ret)
-    return response.json({'uploaded_files' : ret})
+    
+    if err:
+        raise ObjectException(err)
+    
+    return response.json({'uploaded_files' : res[0]})
 
 @app.route('/get-users', methods=['GET'])
 @inject_user()
 @protected()
 async def get_users(request, user):
     res = []
-    db_helper = DBHelper()
     user = User(app.client.energy_db.users)
     users = await user.get_all({'_id': False, 'email': True, 'user_name': True})
+
+    obj = Object(app.client.energy_db.objects)
     for user in users:
-        objects = await db_helper.do_find(
-            app.client.energy_db.objects, 
+        objects, err = await obj.select(
             {'user_email' : user['email']}, 
             {'_id': True, 'object_name': True}
         )
+        if err:
+            raise ObjectException(err)
+
         for objectt in objects:
             res.append({
                 'user_name': user['user_name'],
@@ -174,17 +168,21 @@ async def get_users(request, user):
 
 @app.route('/download-file', methods=['POST'])
 @inject_user()
+@scoped('admin')
 @protected()
 async def download_file(request, user):
-    print(request.json)
+    obj = Object(app.client.energy_db.objects)
 
-    db_helper = DBHelper()
+    res, err = await obj.select(
+        { '_id' : ObjectId(request.json['object_id']) }, 
+        { request.json['object_key']: True }
+    )
+    if err:
+        raise ObjectException(err)
 
-    res = await db_helper.async_select_db(app.client.energy_db.objects, {'_id' : ObjectId(request.json['object_id'])}, {request.json['object_key']: True})
-    print((res[request.json['object_key']]['type']))
     return response.HTTPResponse(
         status=200,
-        headers={"Content-Disposition": 'attachment; filename="{0}"'.format({res[request.json['object_key']]['filename']})},
-        content_type=res[request.json['object_key']]['type'],
-        body_bytes=res[request.json['object_key']]['content'],
+        headers={"Content-Disposition": 'attachment; filename="{0}"'.format(res[0][request.json['object_key']]['filename'])},
+        content_type=res[0][request.json['object_key']]['type'],
+        body_bytes=res[0][request.json['object_key']]['content'],
     )

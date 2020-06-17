@@ -28,7 +28,7 @@ class Register(BaseEndpoint):
             password=request.app.bcrypt.generate_password_hash(request_json['password']).decode('utf-8'),
             is_approve=False,
             register_date=datetime.now(),
-            role='user'
+            role=['user']
         )
 
         res = await user.insert()
