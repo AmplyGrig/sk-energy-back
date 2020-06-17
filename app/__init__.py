@@ -41,6 +41,7 @@ Initialize(
     refresh_token_enabled=True,
     store_refresh_token=Auth.store_refresh_token,
     retrieve_refresh_token=Auth.retrieve_refresh_token,
+    add_scopes_to_payload=Auth.my_scope_extender,
     secret=app.config.SECRET_KEY,
     url_prefix='/api'
 )

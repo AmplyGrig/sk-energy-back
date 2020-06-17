@@ -5,8 +5,13 @@ from sanic.log import logger
 from modules.email_sender import send_email
 from sanic_jwt import BaseEndpoint, exceptions
 from app.exception import PasswordResetFailed, RegistrationFailed
+from app.models import User
 
 class Auth:
+    @staticmethod
+    async def my_scope_extender(user, *args, **kwargs):
+        return user['role']
+
     @staticmethod
     async def store_refresh_token(user_id, refresh_token, *args, **kwargs):
         pass
@@ -24,12 +29,9 @@ class Auth:
             logger.error('Неверный логин или пароль')
             raise exceptions.AuthenticationFailed('Неверный логин или пароль')
         
-        db_helper = DBHelper()
-        user = await db_helper.async_select_db(
-            request.app.client.energy_db.users,
-            {"email" : email}
-        )
-
+        user = User(request.app.client.energy_db.users)
+        user = await user.get(email=email)
+        
         if user is None:
             logger.error('Пользователя не существует')
             raise exceptions.AuthenticationFailed('Пользователя не с данной почтой существует')
@@ -42,7 +44,7 @@ class Auth:
             logger.error('Неверный логин или пароль')
             raise exceptions.AuthenticationFailed('Неверный логин или пароль')
 
-        return { 'user_id' : str(user.get('_id')) }
+        return { 'user_id' : str(user.get('_id')), 'role': user.get('role') }
 
 class ResetPassword(BaseEndpoint):
     async def post(self, request, *args, **kwargs):
@@ -54,8 +56,8 @@ class ResetPassword(BaseEndpoint):
             logger.error('Неверный формат почты')
             raise PasswordResetFailed('Неверный формат почты')
 
-        db_helper = DBHelper()
-        user = await db_helper.async_select_db(request.app.client.energy_db.users, {"email" : email})
+        user = User(request.app.client.energy_db.users)
+        user = await user.get(email=email)
         if not user:
             logger.error('Пользователя не существует')
             raise PasswordResetFailed('Пользователя не с данной почтой существует')
@@ -77,21 +79,17 @@ class ResetPasswordWithToken(BaseEndpoint):
             logger.error('Время действия ссылки истекло')
             raise PasswordResetFailed('Время действия ссылки истекло')
 
-        db_helper = DBHelper()
-        await db_helper.update_row(
-            request.app.client.energy_db.users, 
-            {"email" : email}, 
-            { "$set": {
-                    "password": password
-                } 
-            }
-        )
+        user = User(request.app.client.energy_db.users)
+        res = await user.update({"password": password}, email=email)
+        if res is None:
+            logger.error('Не удалось обновить пароль пользователя')
+            raise PasswordResetFailed('Не удалось обновить пароль пользователя')
         
         return response.json({'hit': 0})
 
 class ApproveEmail(BaseEndpoint):
     async def post(self, request, *args, **kwargs):
-        db_helper = DBHelper()
+        user = User(request.app.client.energy_db.users)
         try:
             email = request.app.ts.loads(
                 request.json['token'], 
@@ -99,16 +97,15 @@ class ApproveEmail(BaseEndpoint):
                 max_age=86400
             )
         except Exception as e:
-            await db_helper.delete_row(request.app.client.energy_db.users, {"email" : email})
+            res = await user.delete(email=email)
+            if res is None:
+                RegistrationFailed("Произошла ошибка")
+
             logger.error('Время действия ссылки истекло')
-            raise RegistrationFailed("Время действия ссылки истекло.")
+            raise RegistrationFailed("Время действия ссылки истекло")
         
-        await db_helper.update_row(
-            request.app.client.energy_db.users, 
-            {"email" : email},
-            { "$set": {
-                    "is_approve": True 
-                } 
-            }
-        )
+        res = await user.update({"is_approve": True} , email=email)
+        if res is None:
+            raise RegistrationFailed("Не удалось подтвердить пользователя")
+
         return response.json({'hit': 0})
