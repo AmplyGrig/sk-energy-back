@@ -9,6 +9,7 @@ from bson.objectid import ObjectId
 from .models import User, Object
 from .exception import ObjectException
 from sanic_jwt.decorators import scoped
+from datetime import datetime
 
 @app.route('/', methods=['POST'])
 @protected()
@@ -125,7 +126,7 @@ async def upload_main_file(request, user):
 async def get_main_files(request, user):
     obj = Object(app.client.energy_db.objects)
     res, err = await obj.select(
-        { 'user_email': "leonid_kit@mail.ru", '_id': ObjectId(request.json['object_id'])},
+        { '_id': ObjectId(request.json['object_id'])    },
         {
             "_id": False,
             "object_name": False, 
@@ -137,7 +138,6 @@ async def get_main_files(request, user):
     
     if err:
         raise ObjectException(err)
-    
     return response.json({'uploaded_files' : res[0]})
 
 @app.route('/get-users', methods=['GET'])
@@ -165,6 +165,16 @@ async def get_users(request, user):
             })
     return response.json({"users": res})
 
+@app.route('/get-user-info', methods=['POST'])
+@protected()
+@scoped('admin')
+async def get_user_info(request):
+    obj = Object(app.client.energy_db.objects)
+    res, err = await obj.get_user(request.json['object_id'])
+    if err:
+        raise ObjectException(err)
+    return response.json(res)
+
 
 @app.route('/download-file', methods=['POST'])
 @inject_user()
@@ -186,3 +196,43 @@ async def download_file(request, user):
         content_type=res[0][request.json['object_key']]['type'],
         body_bytes=res[0][request.json['object_key']]['content'],
     )
+
+@app.route('/add-comment-to-main-file', methods=['POST'])
+@scoped('admin')
+@protected()
+async def add_comment_to_main_file(request):
+    object_id = ObjectId(request.json['object_id'])
+    object_key = request.json['object_key']
+    comment = request.json['comment']
+
+    obj = Object(app.client.energy_db.objects)
+    res, err = await obj.push(
+        {"_id": object_id},
+        { 
+            object_key+'.comments': {
+                "content": comment,
+                "create_dt": datetime.now()
+            }
+        }
+    )
+    if err:
+        raise ObjectException(err)
+
+    return response.json({'hit': 0})
+
+@app.route('/approve-main-file', methods=['POST'])
+@scoped('admin')
+@protected()
+async def approve_main_file(request):
+    object_id = ObjectId(request.json['object_id'])
+    object_key = request.json['object_key']
+
+    obj = Object(app.client.energy_db.objects)
+    res, err = await obj.update(
+        {"_id": object_id},
+        { object_key + '.is_approve': True }
+    )
+    if err:
+        raise ObjectException(err)
+
+    return response.json({'hit': 0})
