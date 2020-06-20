@@ -16,3 +16,9 @@ class DBHelper():
 
     async def _delete_db(self, collection, row_ident):
         return await collection.delete_one(row_ident)
+
+    async def _aggregate(self, collection, pipeline):
+        res_arr = []
+        async for document in collection.aggregate(pipeline):
+            res_arr.append(document)
+        return res_arr
