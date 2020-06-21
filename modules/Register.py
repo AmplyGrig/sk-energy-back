@@ -39,7 +39,7 @@ class Register(BaseEndpoint):
             try:
                 token = request.app.ts.dumps(email, salt='approve-email-key')
                 url = request.url_for('auth_bp.ApproveEmail', token=token)
-                await send_email(email, "Подтверждение регистрации CK Energy", url)
+                await send_email(format(request_json['email']), "Подтверждение регистрации CK Energy", url)
             except Exception as e:
                 await user.delete()
                 logger.error("Не удалось отправить письмо с подтверждением на почту - {0}".format(request_json['email']))

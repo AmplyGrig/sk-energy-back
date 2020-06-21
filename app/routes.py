@@ -9,6 +9,7 @@ from bson.objectid import ObjectId
 from .models import User, Object
 from .exception import ObjectException
 from sanic_jwt.decorators import scoped
+from sanic.log import logger
 
 @app.route('/', methods=['POST'])
 @protected()
@@ -33,6 +34,34 @@ async def callMe(request):
         return response.json({'hit': 1})
 
     return response.json({'hit': 0})
+
+@app.route('/get-my-user', methods=["GET"])
+@inject_user()
+@scoped('user')
+@protected()
+async def get_my_user(request, user):
+    users = User(app.client.energy_db.users)
+    email = user['email']
+    myuser = await users.get(email=email)
+    myuser.pop('_id', None)
+    myuser.pop('register_date', None)
+    logger.error(myuser)
+    return response.json(myuser)
+
+@app.route('/update-my-user', methods=["POST"])
+@inject_user()
+@scoped('user')
+@protected()
+async def update_my_user(request, user):
+    users = User(app.client.energy_db.users)
+    email = user['email']
+    obj = {}
+    # for key, value in request.json:
+    #     obj
+    
+    myuser = await users.update(request.json, email=email)
+
+    return response.json(200)
 
 @app.route('/add-object', methods=["POST"])
 @inject_user()
