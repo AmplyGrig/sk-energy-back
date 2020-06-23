@@ -3,7 +3,7 @@ from sanic import Blueprint
 from motor.motor_asyncio import AsyncIOMotorClient
 import asyncio
 
-MONGO_CONN_STR = 'mongodb://myUserAdmin:abc123@localhost:27017'
+MONGO_CONN_STR = 'mongodb://root:example@localhost:27017'
 
 mongoBP = Blueprint('mongoBP')
 
