@@ -12,8 +12,8 @@ from email.mime.multipart import MIMEMultipart
 
 
 async def send_email(addr_to, msg_subj, msg_text, files=None):
-    addr_from = "leonid_kit@mail.ru"
-    password  = "potapDog199806r!"
+    addr_from = "energokonsalting@list.ru"
+    password  = "energy12345"
 
     msg = MIMEMultipart()
     msg['From']    = addr_from
