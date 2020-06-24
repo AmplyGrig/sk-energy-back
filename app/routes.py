@@ -11,11 +11,6 @@ from .exception import ObjectException
 from sanic_jwt.decorators import scoped
 from datetime import datetime
 
-@app.route('/', methods=['POST'])
-@protected()
-async def mainRoute(request):
-    return response.text('sd')
-
 @app.route('/call-me', methods=['POST',])
 async def callMe(request):
     email = request.json['email']
@@ -47,6 +42,7 @@ async def add_object(request, user):
     )
     res, err = await new_object.insert()
     if err:
+        print(err)
         raise ObjectException(err)
 
     return response.json({'hit': 0})
@@ -107,11 +103,13 @@ async def upload_main_file(request, user):
     res, err = await obj.update(
         {"_id": object_id},
         {
+            "change_dt": str(datetime.now()),
             object_type: {
                 "type": object_file.type,
                 "content": object_file.body,
                 "filename": object_file.name,
-                "is_approve": False
+                "is_approve": False,
+                "comment": ''
             }
         }
     )
@@ -120,6 +118,129 @@ async def upload_main_file(request, user):
 
     return response.json({'hit': 0})
 
+@app.route('/upload-file', methods=['POST'])
+@inject_user()
+@scoped('user')
+@protected()
+async def upload_file(request, user):
+    file = request.files['file'][0]
+    db_helper = DBHelper()
+    res = await db_helper._find_db(app.client.energy_db.files,
+        {
+            'file_key': request.form['file_type'][0],
+            "object_id": request.form['object_id'][0],
+            "year": request.form['file_year'][0],
+            "month": request.form['file_month'][0]
+        },
+        { "_id": 1 }
+    )
+    if res:
+        res = await db_helper._update_db(app.client.energy_db.files, 
+            {
+                'file_key': request.form['file_type'][0],
+                "year": request.form['file_year'][0],
+                "month": request.form['file_month'][0],
+                "object_id": request.form['object_id'][0]
+            },
+            { "$set": {
+                    'file_key': request.form['file_type'][0],
+                    "year": request.form['file_year'][0],
+                    "month": request.form['file_month'][0],
+                    "object_id": request.form['object_id'][0],
+                    "type": file.type,
+                    "content": file.body,
+                    "filename": file.name,
+                    "is_approve": False,
+                    "comment": ''
+                }
+            })
+    else:
+        res = await db_helper._insert_db(app.client.energy_db.files, {
+            'file_key': request.form['file_type'][0],
+            "year": request.form['file_year'][0],
+            "month": request.form['file_month'][0],
+            "object_id": request.form['object_id'][0],
+            "type": file.type,
+            "content": file.body,
+            "filename": file.name,
+            "is_approve": False,
+            "comment": ''
+        })
+    if not res:
+        raise ObjectException('Не удалось загрузить файл')
+
+    return response.json({'hit': 0})
+
+@app.route('/upload-files', methods=['POST'])
+@inject_user()
+@scoped('user')
+@protected()
+async def upload_files(request, user):
+    db_helper = DBHelper()
+    for key in request.files:
+        file = request.files[key][0]
+        try:
+            metaFile = file.name.split('.')
+            metaFile = metaFile[0].split('-')
+        except:
+            raise ObjectException('Ошибка в названии файла: {0}'.format(file.name))
+
+        try:
+            month = int(metaFile[1])
+            if month not in list(range(1, 13)):
+                raise ObjectException('Ошибка в названии файла: {0}'.format(file.name))
+
+            year = int(metaFile[0])
+            if (year < 2017) or (year > 2100) or (int(request.form['file_year'][0]) != year):
+                raise ObjectException('Ошибка в названии файла: {0}'.format(file.name))
+        except:
+            raise ObjectException('Ошибка в названии файла: {0}'.format(file.name))
+        res = await db_helper._find_db(app.client.energy_db.files,
+            {
+                'file_key': request.form['file_type'][0],
+                "object_id": request.form['object_id'][0],
+                "year": request.form['file_year'][0],
+                "month": month
+            },
+            { "_id": 1 }
+        )
+        if res:
+            res = await db_helper._update_db(app.client.energy_db.files, 
+                {
+                    'file_key': request.form['file_type'][0],
+                    "year": request.form['file_year'][0],
+                    "month": month,
+                    "object_id": request.form['object_id'][0]
+                },
+                { "$set": {
+                        'file_key': request.form['file_type'][0],
+                        "year": request.form['file_year'][0],
+                        "month": month,
+                        "object_id": request.form['object_id'][0],
+                        "type": file.type,
+                        "content": file.body,
+                        "filename": file.name,
+                        "is_approve": False,
+                        "comment": ''
+                    }
+                })
+        else:
+            res = await db_helper._insert_db(app.client.energy_db.files, {
+                'file_key': request.form['file_type'][0],
+                "year": request.form['file_year'][0],
+                "month": month,
+                "object_id": request.form['object_id'][0],
+                "type": file.type,
+                "content": file.body,
+                "filename": file.name,
+                "is_approve": False,
+                "comment": ''
+            })
+        if not res:
+            raise ObjectException('Не удалось загрузить файл: {0}'.format(file.name))
+
+    return response.json({'hit': 0})
+    
 @app.route('/get-main-files', methods=['POST'])
 @inject_user()
 @protected()
@@ -130,15 +251,32 @@ async def get_main_files(request, user):
         {
             "_id": False,
             "object_name": False, 
-            "user_email": False
+            "user_email": False,
+            "change_dt": False
         },
         isFiles=True,
-        fileFieldsNeed=['is_approve']
+        fileFieldsNeed=['is_approve', 'comment']
     )
-    
+    print(res)
     if err:
         raise ObjectException(err)
     return response.json({'uploaded_files' : res[0]})
+
+@app.route('/get-files', methods=['POST'])
+@inject_user()
+@protected()
+async def get_files(request, user):
+    print(request.json)
+    db_helper = DBHelper()
+    res = await db_helper._find_db(app.client.energy_db.files,
+        { 'object_id': request.json['object_id'], 'file_key': request.json['file_type']},
+        { 'content': 0 }
+    )
+
+    for item in res:
+        item['_id'] = str(item['_id'])
+
+    return response.json(res)
 
 @app.route('/get-users', methods=['GET'])
 @inject_user()
@@ -175,12 +313,11 @@ async def get_user_info(request):
         raise ObjectException(err)
     return response.json(res)
 
-
-@app.route('/download-file', methods=['POST'])
+@app.route('/download-main-file', methods=['POST'])
 @inject_user()
 @scoped('admin')
 @protected()
-async def download_file(request, user):
+async def download_main_file(request, user):
     obj = Object(app.client.energy_db.objects)
 
     res, err = await obj.select(
@@ -197,6 +334,28 @@ async def download_file(request, user):
         body_bytes=res[0][request.json['object_key']]['content'],
     )
 
+@app.route('/download-file', methods=['POST'])
+@inject_user()
+@scoped('admin')
+@protected()
+async def download_file(request, user):
+    db_helper = DBHelper()
+
+    res = await db_helper._select_db(app.client.energy_db.files,
+        {
+            "object_id": request.json['object_id'],
+            "year": str(request.json['file_year']),
+            "month": str(request.json.get('file_month', "null")),
+            "file_key": request.json['file_key'],
+        }
+    )
+    return response.HTTPResponse(
+        status=200,
+        headers={"Content-Disposition": 'attachment; filename="{0}"'.format(res['filename'])},
+        content_type=res['type'],
+        body_bytes=res['content'],
+    )
+
 @app.route('/add-comment-to-main-file', methods=['POST'])
 @scoped('admin')
 @protected()
@@ -206,17 +365,44 @@ async def add_comment_to_main_file(request):
     comment = request.json['comment']
 
     obj = Object(app.client.energy_db.objects)
-    res, err = await obj.push(
+    res, err = await obj.update(
         {"_id": object_id},
         { 
-            object_key+'.comments': {
+            object_key+'.comment': {
                 "content": comment,
-                "create_dt": datetime.now()
+                "create_dt": str(datetime.now())
             }
         }
     )
     if err:
         raise ObjectException(err)
+
+    return response.json({'hit': 0})
+
+@app.route('/add-comment-to-file', methods=['POST'])
+@scoped('admin')
+@protected()
+async def add_comment_to_file(request):
+    print(request.json)
+    db_helper = DBHelper()
+
+    res = await db_helper._update_db(
+        app.client.energy_db.files,
+        {
+            "object_id": request.json['object_id'],
+            "year": str(request.json['file_year']),
+            "month": str(request.json.get('file_month', "null")),
+            "file_key": request.json['file_key'],
+        },
+        {
+            "$set" : {
+                'comment': request.json['comment']
+            }
+        }
+    )
+    print(res)
+    if not res:
+        raise ObjectException('Не удалось добавить комментарий')
 
     return response.json({'hit': 0})
 
@@ -234,5 +420,33 @@ async def approve_main_file(request):
     )
     if err:
         raise ObjectException(err)
+
+    return response.json({'hit': 0})
+
+
+@app.route('/approve-file', methods=['POST'])
+@scoped('admin')
+@protected()
+async def approve_file(request):
+    print(request.json.get('file_month', "null"))
+    db_helper = DBHelper()
+
+    res = await db_helper._update_db(
+        app.client.energy_db.files,
+        {
+            "object_id": request.json['object_id'],
+            "year": str(request.json['file_year']),
+            "month": str(request.json.get('file_month', "null")),
+            "file_key": request.json['file_key'],
+        },
+        {
+            "$set" : {
+                'is_approve': True
+            }
+        }
+    )
+    print(res)
+    if not res:
+        raise ObjectException('Не удалось подтвердить файл')
 
     return response.json({'hit': 0})

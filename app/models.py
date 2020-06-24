@@ -107,6 +107,7 @@ class Object(DBHelper):
         'id',
         'object_name', 
         'user_email',
+        'change_dt',
         'passport_pute',
         'project_uute',
         'tech_conditions',
@@ -160,7 +161,7 @@ class Object(DBHelper):
 
             res = await super()._find_db(
                 self.collection, 
-                row_ident, 
+                row_ident,
                 proection
             )
 
@@ -239,5 +240,5 @@ class File(DBHelper):
         "content",
         "filename",
         "is_approve",
-        "comments"
+        "comment"
     ]
