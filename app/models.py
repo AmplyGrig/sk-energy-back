@@ -107,6 +107,7 @@ class Object(DBHelper):
         'id',
         'object_name', 
         'user_email',
+        'change_dt',
         'passport_pute',
         'project_uute',
         'tech_conditions',
@@ -160,7 +161,7 @@ class Object(DBHelper):
 
             res = await super()._find_db(
                 self.collection, 
-                row_ident, 
+                row_ident,
                 proection
             )
 
@@ -198,11 +199,46 @@ class Object(DBHelper):
         
         return res, None
 
+    async def push(self, row_ident: dict, row_push: dict):
+        res = await super()._update_db(
+            self.collection, 
+            row_ident, 
+            { "$push": row_push }
+        )
+        if not res:
+            return None, "Не удалось добавить информацию к объекту"
+        
+        return res, None
+
+    async def get_user(self, object_id):
+        pipeline = [
+            {'$lookup': {
+                    'localField': 'user_email',
+                    'from': 'users',
+                    'foreignField': 'email',
+                    'as': 'users' 
+                },
+            },
+            { "$unwind":"$users" },
+            { '$match': {'_id' : ObjectId(object_id)} },
+            { "$project": {
+                "users.email": 1,
+                "users.user_name": 1,
+                "users.phone": 1,
+                "users.company_name": 1,
+                }
+            },
+        ]
+        res = await super()._aggregate(self.collection, pipeline)
+        if not res:
+            return None, "Не удалось получить информацию о пользователе"
+        return res[0]['users'], None
+
 class File(DBHelper):
     __slots__ = [
         "type",
         "content",
         "filename",
         "is_approve",
-        "comments"
+        "comment"
     ]
