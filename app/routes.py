@@ -244,9 +244,9 @@ async def upload_main_file(request, user):
 async def upload_file(request, user):
     file = request.files['file'][0]
     db_helper = DBHelper()
-    month = None
-    if (request.form['file_month'][0] != month):
-        month = request.form['file_month'][0]
+    month = 'null'
+    if (request.form['file_month'][0] != 'null'):
+        month = int(request.form['file_month'][0])
     res = await db_helper._find_db(app.client.energy_db.files,
         {
             'file_key': request.form['file_type'][0],
@@ -471,12 +471,14 @@ async def download_main_file(request, user):
 async def download_file(request, user):
     print(request.json)
     db_helper = DBHelper()
-
+    month = 'null'
+    if 'file_month' in request.json:
+        month = int(request.json['file_month'])
     res = await db_helper._select_db(app.client.energy_db.files,
         {
             "object_id": request.json['object_id'],
             "year": str(request.json['file_year']),
-            "month": str(request.json.get('file_month', None)),
+            "month": month,
             "file_key": request.json['file_key'],
         }
     )
@@ -514,11 +516,9 @@ async def add_comment_to_main_file(request):
 async def add_comment_to_file(request):
     print(request.json)
     db_helper = DBHelper()
-    month = None
-    if (request.json.get('file_month', None) != month):
-        month = str(request.json['file_month'])
-    else:
-        month = 'null'
+    month = 'null'
+    if 'file_month' in request.json:
+        month = int(request.json['file_month'])
     res = await db_helper._update_db(
         app.client.energy_db.files,
         {
@@ -563,13 +563,15 @@ async def approve_main_file(request):
 async def approve_file(request):
     print(request.json.get('file_month', "null"))
     db_helper = DBHelper()
-
+    month = 'null'
+    if 'file_month' in request.json:
+        month = int(request.json['file_month'])
     res = await db_helper._update_db(
         app.client.energy_db.files,
         {
             "object_id": request.json['object_id'],
             "year": str(request.json['file_year']),
-            "month": int(request.json.get('file_month', -1)),
+            "month": month,
             "file_key": request.json['file_key'],
         },
         {
