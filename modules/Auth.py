@@ -60,7 +60,7 @@ class ResetPassword(BaseEndpoint):
         user = await user.get(email=email)
         if not user:
             logger.error('Пользователя не существует')
-            raise PasswordResetFailed('Пользователя не с данной почтой существует')
+            raise PasswordResetFailed('Пользователя с данной почтой не существует')
 
         token = request.app.ts.dumps(email, salt='recover-key')
         url = request.url_for('auth_bp.ResetPassword', token=token)

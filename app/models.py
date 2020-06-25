@@ -128,7 +128,7 @@ class Object(DBHelper):
 
         row_to_insert = {}
         for slot in self.__slots__:
-            if slot == 'object_name' or slot == 'user_email':
+            if slot == 'object_name' or slot == 'user_email' or slot == 'change_dt':
                 row_to_insert[slot] = getattr(self, slot)
 
         new_object = await super()._insert_db(self.collection, row_to_insert)

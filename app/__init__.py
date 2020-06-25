@@ -19,7 +19,7 @@ from .models import User
 app = Sanic(__name__)
 
 app.config.SECRET_KEY='LOL'
-app.config.SERVER_NAME='http://localhost:8888'
+app.config.SERVER_NAME='http://185.22.63.196:8888'
 app.config.CORP_EMAIL='leonid_kit@mail.ru'
 app.ts = URLSafeTimedSerializer(app.config["SECRET_KEY"])
 app.bcrypt = Bcrypt(app)
